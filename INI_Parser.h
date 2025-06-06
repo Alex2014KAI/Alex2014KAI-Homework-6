@@ -7,7 +7,7 @@
 namespace INIPARSER {
 
 	class Section {
-	private:
+	public:
 		std::string nameSection_;
 		std::map<std::string, std::string> values_{};
 	public:
@@ -17,16 +17,25 @@ namespace INIPARSER {
 			nameSection_ = nameSection;
 
 			return 1; // if return 0 - ERROR
-		}
+		};
 
 		std::string getNameSection() {
 			return nameSection_;
-		}
+		};
 
 		int setValue(std::string nameVariable, std::string valueVariable) {
 			values_[nameVariable] = valueVariable;
 			return 1; // if return 0 - ERROR
+		};
+
+		std::map<std::string, std::string>* getValues() {
+			return &values_;
 		}
+
+		void clear() {
+			values_.clear();
+			nameSection_ = "";
+		};
 	};
 
 	class INI_Parser
@@ -34,8 +43,9 @@ namespace INIPARSER {
 	private:
 		std::string filename_;
 		std::ifstream  file{};
+	public:
 		std::vector<Section> section{}; // [nameSection1, mapValues1; nameSection2, mapValues2; nameSection3, mapValues3;....nameSection_n, mapValues_n]
-
+	private:
 		bool is_readingSection;  // cocked when section reading occurs
 		bool is_readingVariable; // cocked when data is read
 		bool is_readingNameVariable;
@@ -45,36 +55,59 @@ namespace INIPARSER {
 		std::string nameSection_;  // current section
 		std::string nameVariable;  // current variable name
 		std::string valueVariable; // current value of the variable
-		std::map<std::string, std::string> temporaryValues{}; // stores data for the current section
+		//std::map<std::string, std::string> temporaryValues{}; // stores data for the current section
 
-		int (INI_Parser::*_execute)(std::string data); // depending on the variables: is_readingSection, is_readingVariable, is_readingComment will execute methods: readSectionName, ?? ??
+		Section debugData; // ’ранит временные данные
+		void readDataSection() {
+			bool is_duplicate = false; // взводитс€ если уже имеетс€ секци€ с таким именем
+			for (int i{ 0 }; i < section.size(); i++) {
+				if (section[i].getNameSection() == nameSection_) {
 
-		int execute(std::string data) {
+					for (auto It = debugData.values_.begin(); It != debugData.values_.end(); It++) {
+						section[i].values_[It->first] = It->second;
+					}
+					debugData.clear();
+					is_duplicate = true;
+					break;
+				}
+			}
+
+			if (!is_duplicate) {
+				debugData.setNameSection(nameSection_);
+				section.push_back(debugData);
+				debugData.clear();
+				is_duplicate = false;
+			}
+		}
+
+		int (INI_Parser::*_execute)(char data); // depending on the variables: is_readingSection, is_readingVariable, is_readingComment will execute methods: readSectionName, ?? ??
+
+		int execute(char data) {
 			return (this->*_execute)(data);
 		};
 
-		int readSectionName(std::string data) {
-			if (data == "]") { // section name ending
+		int readSectionName(char data) {
+			if (data == ']') { // section name ending
 				is_readingVariable = true;
 				is_readingSection = false;
 				is_readingComment = false;
 				return 1;
 			}
-			else if (data == "[") {
+			else if (data == '[') {
 				return 0; // ERRor
 			}
-			else if (data == ";") {
+			else if (data == ';') {
 				return 0; // ERRor
 			}
 			else {
-				nameSection_.append(data);
+				nameSection_ += data;
 			}
 
 			return 1; // if return 0 - ERROR
 		};
 
-		int readVariable(std::string data) {
-			if (data == ";") {
+		int readVariable(char data) {
+			if (data == ';') {
 				is_readingComment = true;
 				is_readingSection = false;
 				is_readingVariable = false;
@@ -83,30 +116,47 @@ namespace INIPARSER {
 				is_readingValueVariable = false;
 				return 1;
 			}
-			else if (data == "[") {
+			else if (data == '[') {
 				is_readingSection = true;
 				is_readingComment = false;
 				is_readingVariable = false;
 
 				is_readingNameVariable = true;
 				is_readingValueVariable = false;
+
+				readDataSection();
+				
+				nameSection_ = "";
+				nameVariable = "";
+				valueVariable = "";
+
+
 				return 1;
 			} 
-			else if (data == "=") {
+			else if (data == '=') {
 				is_readingNameVariable = false;
 				is_readingValueVariable = true;
+				return 1;
 			}
-			else if (file.peek() == '\n') {
-				temporaryValues[nameVariable] = valueVariable;
+			else if (data == '\n') {
+				
+
+				// if (valueVariable != "" && nameVariable != "") { debugData.setValue(nameVariable, valueVariable); }; // условие не корректное 
+				if (nameVariable != "") { debugData.setValue(nameVariable, valueVariable); };
+
 				is_readingNameVariable = true;
 				is_readingValueVariable = false;
+				nameVariable = "";
+				valueVariable = "";
+				return 1;
 			}
 			else {
 				if (is_readingNameVariable) {
-					nameVariable.append(data);
+					nameVariable += data;
 				}
 				else {
-					valueVariable.append(data);
+					valueVariable += data; // не считываетс€ последн€€ буква
+					return 1;
 				}
 				return 1;
 			}
@@ -115,7 +165,7 @@ namespace INIPARSER {
 			return 1; // if return 0 - ERROR
 		};
 
-		int readComment(std::string data) {
+		int readComment(char data) {
 				if (file.peek() == '\n') {
 				std::cout << "perenos stroki" << std::endl;
 				_execute = &INI_Parser::expectation;
@@ -124,46 +174,43 @@ namespace INIPARSER {
 			return 1; // if return 0 - ERROR
 		};
 
-		int expectation(std::string data) {
-			Section debugData;
+		int expectation(char data) {
 
-			if (data == "[") { // «апись данных в общий вектор
+			if (data == '[') { // «апись данных в общий вектор
 				
-				bool is_duplicate = false;
-					for (int i{ 0 }; i < section.size(); i++) {
-						if (section[i].getNameSection() == nameSection_) {
+				//bool is_duplicate = false; // взводитс€ если уже имеетс€ секци€ с таким именем
+				//	for (int i{ 0 }; i < section.size(); i++) {
+				//		if (section[i].getNameSection() == nameSection_) {
 
-							debugData.setNameSection(nameSection_);
-							for (auto mapIt = temporaryValues.begin(); mapIt != temporaryValues.end(); mapIt++) {
-								debugData.setValue(mapIt->first, mapIt->second);
-							}
-							section[i] = debugData;
+				//			debugData.setNameSection(nameSection_);
+				//			for (auto mapIt = temporaryValues.begin(); mapIt != temporaryValues.end(); mapIt++) {
+				//				debugData.setValue(mapIt->first, mapIt->second);
+				//			}
+				//			section[i] = debugData;
 
-							is_duplicate = true;
-							break;
-						}
-					}
-					if (!is_duplicate) {
-						debugData.setNameSection(nameSection_);
-						for (auto mapIt = temporaryValues.begin(); mapIt != temporaryValues.end(); mapIt++) {
-							debugData.setValue(mapIt->first, mapIt->second);
-						}
-						section.push_back(debugData);
-						is_duplicate = false;
-					}
-					
-				
-
-				nameSection_ = "";
-				nameVariable = "";
-				valueVariable = "";
-				temporaryValues.clear();
+				//			is_duplicate = true;
+				//			break;
+				//		}
+				//	}
+				//	if (!is_duplicate) {
+				//		debugData.setNameSection(nameSection_);
+				//		for (auto mapIt = temporaryValues.begin(); mapIt != temporaryValues.end(); mapIt++) {
+				//			debugData.setValue(mapIt->first, mapIt->second);
+				//		}
+				//		section.push_back(debugData);
+				//		is_duplicate = false;
+				//	}
+				//	
+				//nameSection_ = "";
+				//nameVariable = "";
+				//valueVariable = "";
+				//temporaryValues.clear();
 
 				is_readingSection = true;
 				is_readingVariable = false;
 				is_readingComment = false;
 			}
-			else if(data == ";") {
+			else if (data == ';') {
 				is_readingComment = true;
 				is_readingSection = false;
 				is_readingVariable = false;
@@ -184,11 +231,20 @@ namespace INIPARSER {
 	public:
 		INI_Parser(std::string filename): filename_(filename), is_readingSection(false), is_readingVariable(false), is_readingNameVariable(true),
 			        is_readingValueVariable(false), is_readingComment(false), nameSection_(""), nameVariable(""), valueVariable(""), _execute(&INI_Parser::expectation) {
+
 			file.open(filename_);
 			if (file.is_open()) {
-				std::string str{};
+				char str;
+				file.get(str);
+				if (str == '[') {
+					_execute = &INI_Parser::readSectionName;
+				};
+				if (str == ';') {
+					_execute = &INI_Parser::readComment;
+				};
+				// execute(str);
 
-				while (file >> str){
+				while (file.get(str)){
 					if (is_readingSection) {
 						_execute = &INI_Parser::readSectionName;
 					};
