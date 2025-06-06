@@ -1,15 +1,19 @@
 [Section1]
-var1=5.0 
-var2=string
+; comment about the section
+var1=5.0 ; Sometimes a comment on a separate parameter is allowed
+var2=some line
+  
+[Section2]
+var1=1
+var2=value_2
 
-[Lexa]
-name = Lexa
-age = 38
+; Sometimes values ​​are missing, this means there are no variables in Section3
+[Section3]
+[Section4]
+Mode=
+Vid=
 
+; Sections may be repeated
 [Section1]
-var3=5.0 
-var2=NINA
-[Papa]
-data =
-id = 8
-[
+var3=value
+var1=1.0 ; reassign the value
