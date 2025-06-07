@@ -1,6 +1,6 @@
 [Section1]
 ; comment about the section
-var1=5.0 ; Sometimes a comment on a separate parameter is allowed
+var1=5 ; Sometimes a comment on a separate parameter is allowed
 var2=some line
   
 [Section2]

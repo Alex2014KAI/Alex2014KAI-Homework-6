@@ -1,5 +1,6 @@
 #pragma once
 #include <iostream>
+#include <string>
 #include <fstream>
 #include <vector>
 #include <map>
@@ -274,6 +275,112 @@ namespace INIPARSER {
 			file.close();
 		}
 		
+		template<typename T>
+		T get_value(std::string dataName) {}
+
+		template<>
+		std::string get_value<std::string>(std::string dataName) {
+			if (isBlank(dataName)) {
+				throw std::length_error("you must specify the variable name: <section_name.variable_name>");
+			}
+
+			std::string nameSection;
+			std::string nameValue;
+			std::string value;
+
+			bool isSectionRecord{ true };
+
+			for (char ch : dataName) {
+				if (isSectionRecord) {
+					if (ch == '.') {
+						isSectionRecord = false;
+						continue;
+					}
+					nameSection += ch;
+				}
+				else {
+					nameValue += ch;
+				}
+			}
+
+			bool isThereSection{ false };
+			bool isThereValue{ false };
+
+			for (auto vectorIt = section.begin(); vectorIt != section.end(); vectorIt++) {
+				if ((*vectorIt).nameSection_ == nameSection) {
+					isThereSection = true;
+					for (auto It = (*vectorIt).values_.begin(); It != (*vectorIt).values_.end(); It++) {
+						if (It->first == nameValue) { 
+							isThereValue = true;
+							value = It->second;
+							return value;
+						};
+					}
+				}
+			}
+
+			if (!isThereSection) throw std::exception("There is no section with this name");
+			if (!isThereValue && isThereSection) throw std::exception("There is no such variable in this section");
+			
+		};
+
+		template<>
+		int get_value<int>(std::string dataName) {
+			if (isBlank(dataName)) {
+				throw std::length_error("you must specify the variable name: <section_name.variable_name>");
+			}
+
+			std::string nameSection;
+			std::string nameValue;
+			std::string value;
+
+			bool isSectionRecord{ true };
+
+			for (char ch : dataName) {
+				if (isSectionRecord) {
+					if (ch == '.') {
+						isSectionRecord = false;
+						continue;
+					}
+					nameSection += ch;
+				}
+				else {
+					nameValue += ch;
+				}
+			}
+
+			bool isThereSection{ false };
+			bool isThereValue{ false };
+
+			for (auto vectorIt = section.begin(); vectorIt != section.end(); vectorIt++) {
+				if ((*vectorIt).nameSection_ == nameSection) {
+					isThereSection = true;
+					for (auto It = (*vectorIt).values_.begin(); It != (*vectorIt).values_.end(); It++) {
+						if (It->first == nameValue) {
+							isThereValue = true;
+							value = It->second;
+
+							int valueINT{ 0 };
+
+							for (int i{ 0 }; i < value.length(); i++) {
+								if (((static_cast<int>(value[i])  - 48) > 9) && 
+									(static_cast<int>(value[i]) != 46) && 
+									(static_cast<int>(value[i]) != 44)) {
+									std::cout << "Not a number";
+									throw std::exception("Not a number");
+								}
+							}
+
+							valueINT = std::stoi(value);
+							return valueINT;
+						};
+					}
+				}
+			}
+
+			if (!isThereSection) throw std::exception("There is no section with this name");
+			if (!isThereValue && isThereSection) throw std::exception("There is no such variable in this section");
+		}
 	};
 
 }
