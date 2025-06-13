@@ -7,15 +7,46 @@
 #include "MyConsts.h"
 
 namespace INIPARSER {
-	class CurrentLinePositionException : public std::exception {
-		// char line_;
+
+	
+	class ExceptionCurrentLinePosition : public std::exception {
+		uint32_t currentLinePosition_;
 	public:
-		CurrentLinePositionException(char line) : std::exception("Syntax error on line " + line) {};
+		ExceptionCurrentLinePosition(uint32_t line) : currentLinePosition_(line) {};
 
 		const char* what() const noexcept override {
-			return std::exception::what(); // Возвращаем сообщение об ошибке
-		}
+			std::cout << "Syntax error on line " << currentLinePosition_;
+			return "";
+		};
 	};
+
+	class ExceptionVariableValueError : public std::exception {
+		std::string nameSection_;
+		std::string nameValue_;
+		std::map<std::string, std::string> values_;
+	public:
+		ExceptionVariableValueError(const std::map<std::string, std::string>& values, const std::string nameSection,
+									const std::string nameValue) :
+									values_(values), nameSection_(nameSection), nameValue_(nameValue){};
+
+		const char* what() const noexcept override {
+			std::cout << "In section " << nameSection_ << " variable " << nameValue_ << " has no magnitude " << std::endl;
+			std::cout << "In section " << nameSection_ << " there are variables: " << std::endl;
+			for (auto It = values_.begin(); It != values_.end(); It++) {
+				std::cout << It->first;
+				if (It->second != "") {
+					std::cout << " = " << It->second;
+				}
+				else {
+					std::cout << " not defined";
+				}
+				std::cout << std::endl;
+			}
+			return "";
+		};
+	};
+
+	
 
 	class Section {
 	public:
@@ -119,11 +150,15 @@ namespace INIPARSER {
 				break;
 			}
 			case CONSTS::isSectionStartCharacter: {
-				throw std::exception("Invalid section name");
+				throw ExceptionCurrentLinePosition(currentLinePosition);
 				return 0;						// ERRor
 			}
 			case CONSTS::isCommentStartCharacter: {
-				throw std::exception("Invalid section name");
+				throw ExceptionCurrentLinePosition(currentLinePosition);
+				return 0;						// ERRor
+			}
+			case CONSTS::isEqualSymbol: {
+				throw ExceptionCurrentLinePosition(currentLinePosition);
 				return 0;						// ERRor
 			}
 			default:
@@ -258,7 +293,7 @@ namespace INIPARSER {
 	public:
 		INI_Parser(std::string filename): filename_(filename), is_readingSection(false), is_readingVariable(false), 
 			is_readingNameVariable(true), is_readingValueVariable(false), is_readingComment(false), 
-			nameSection_(""), nameVariable(""), valueVariable(""), currentLinePosition(0),
+			nameSection_(""), nameVariable(""), valueVariable(""), currentLinePosition(1),
 			_execute(&INI_Parser::expectation) {
 
 			file.open(filename_);
@@ -342,7 +377,7 @@ namespace INIPARSER {
 								value = It->second;
 
 								if (value == "") { 
-									throw std::exception("The variable  has no value!" );
+									throw ExceptionVariableValueError((*vectorIt).values_, nameSection, nameValue);
 								};
 
 								if constexpr (std::is_same_v<T, std::string>) { // std::string
@@ -375,6 +410,5 @@ namespace INIPARSER {
 
 	};
 	
-
 }
 

@@ -12,6 +12,8 @@ var2=value_2
 [Section4]
 Mode=
 Vid=
+Name=Lexa
+age=29
 
 ; Sections may be repeated
 [Section1]
