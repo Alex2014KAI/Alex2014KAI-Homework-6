@@ -131,6 +131,7 @@
     <ClCompile Include="INI_Parser.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="MyConsts.h" />
     <ClInclude Include="INI_Parser.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

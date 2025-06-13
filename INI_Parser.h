@@ -4,15 +4,26 @@
 #include <fstream>
 #include <vector>
 #include <map>
+#include "MyConsts.h"
 
 namespace INIPARSER {
+	class CurrentLinePositionException : public std::exception {
+		// char line_;
+	public:
+		CurrentLinePositionException(char line) : std::exception("Syntax error on line " + line) {};
+
+		const char* what() const noexcept override {
+			return std::exception::what(); // Возвращаем сообщение об ошибке
+		}
+	};
 
 	class Section {
 	public:
 		std::string nameSection_;
 		std::map<std::string, std::string> values_{};
 	public:
-		Section() {};
+		Section() {}; // = delete;
+		~Section() = default;
 
 		int setNameSection(std::string nameSection) {
 			nameSection_ = nameSection;
@@ -45,7 +56,7 @@ namespace INIPARSER {
 		std::string filename_;
 		std::ifstream  file{};
 	public:
-		std::vector<Section> section{}; // [nameSection1, mapValues1; nameSection2, mapValues2; nameSection3, mapValues3;....nameSection_n, mapValues_n]
+		std::vector<Section> section; // [nameSection1, mapValues1; nameSection2, mapValues2; nameSection3, mapValues3;....nameSection_n, mapValues_n]
 	private:
 		bool is_readingSection;  // cocked when section reading occurs
 		bool is_readingVariable; // cocked when data is read
@@ -57,6 +68,7 @@ namespace INIPARSER {
 		std::string nameVariable;  // current variable name
 		std::string valueVariable; // current value of the variable
 		//std::map<std::string, std::string> temporaryValues{}; // stores data for the current section
+		uint32_t currentLinePosition; // current line position
 
 		Section debugData; // Stores temporary data for a section
 
@@ -98,26 +110,34 @@ namespace INIPARSER {
 		};
 
 		int readSectionName(char data) {
-			if (data == ']') {				   // section name ending
+			switch (data)
+			{
+			case CONSTS::isEndSectionCharacter: {
 				is_readingVariable = true;
 				is_readingSection = false;
 				is_readingComment = false;
-				return 1;
+				break;
 			}
-			else if (data == '[') {
+			case CONSTS::isSectionStartCharacter: {
+				throw std::exception("Invalid section name");
 				return 0;						// ERRor
 			}
-			else if (data == ';') {
+			case CONSTS::isCommentStartCharacter: {
+				throw std::exception("Invalid section name");
 				return 0;						// ERRor
 			}
-			else {
+			default:
 				nameSection_ += data;
+				break;
 			}
+
 			return 1;							// if return 0 - ERROR
 		};
 
 		int readVariable(char data) {			// reading data
-			if (data == ';') {
+			switch (data)
+			{
+			case CONSTS::isCommentStartCharacter: {
 				is_readingComment = true;
 				is_readingSection = false;
 				is_readingVariable = false;
@@ -126,7 +146,7 @@ namespace INIPARSER {
 				is_readingValueVariable = false;
 				return 1;
 			}
-			else if (data == '[') {
+			case CONSTS::isSectionStartCharacter: {
 				is_readingSection = true;
 				is_readingComment = false;
 				is_readingVariable = false;
@@ -135,26 +155,27 @@ namespace INIPARSER {
 				is_readingValueVariable = false;
 
 				readDataSection();
-				
+
 				nameSection_ = "";
 				nameVariable = "";
 				valueVariable = "";
 				return 1;
-			} 
-			else if (data == '=') {
+			}
+			case CONSTS::isEqualSymbol: {
 				is_readingNameVariable = false;
 				is_readingValueVariable = true;
 				return 1;
 			}
-			else if (data == '\n') {
+			case '\n': {
 				if (!isBlank(nameVariable)) { debugData.setValue(nameVariable, valueVariable); };
 				is_readingNameVariable = true;
 				is_readingValueVariable = false;
 				nameVariable = "";
 				valueVariable = "";
+				currentLinePosition++;
 				return 1;
 			}
-			else {
+			default: {
 				if (is_readingNameVariable) {
 					nameVariable += data;
 					return 1;
@@ -163,10 +184,9 @@ namespace INIPARSER {
 					valueVariable += data;
 					return 1;
 				}
-				return 1;
+				break;
 			}
-
-
+			}
 			return 1; // if return 0 - ERROR
 		};
 
@@ -177,6 +197,7 @@ namespace INIPARSER {
 				is_readingSection = false;
 				is_readingComment = false;
 				is_readingVariable = false;
+				currentLinePosition++;
 				return 1;
 			}
 
@@ -185,8 +206,9 @@ namespace INIPARSER {
 
 		int expectation(char data) {
 
-			if (data == '[') { 
-
+			switch (data)
+			{
+			case CONSTS::isSectionStartCharacter: {
 				is_readingSection = true;
 				is_readingComment = false;
 				is_readingVariable = false;
@@ -201,16 +223,17 @@ namespace INIPARSER {
 				valueVariable = "";
 				return 1;
 			}
-			else if (data == ';') {
+			case CONSTS::isCommentStartCharacter: {
 				is_readingComment = true;
 				is_readingSection = false;
 				is_readingVariable = false;
 				return 1;
 			}
-			else if (data == '\n') {
+			case '\n': {
+				currentLinePosition++;
 				return 1;
 			}
-			else {
+			default: {
 				if (!isBlank(nameVariable)) { debugData.setValue(nameVariable, valueVariable); };
 				is_readingNameVariable = true;
 				is_readingValueVariable = false;
@@ -222,8 +245,9 @@ namespace INIPARSER {
 				is_readingComment = false;
 				is_readingSection = false;
 				return 1;
+				break;
+			}	
 			}
-
 			return 1; // if return 0 - ERROR
 		};
 
@@ -232,17 +256,19 @@ namespace INIPARSER {
 		}
 
 	public:
-		INI_Parser(std::string filename): filename_(filename), is_readingSection(false), is_readingVariable(false), is_readingNameVariable(true),
-			        is_readingValueVariable(false), is_readingComment(false), nameSection_(""), nameVariable(""), valueVariable(""), _execute(&INI_Parser::expectation) {
+		INI_Parser(std::string filename): filename_(filename), is_readingSection(false), is_readingVariable(false), 
+			is_readingNameVariable(true), is_readingValueVariable(false), is_readingComment(false), 
+			nameSection_(""), nameVariable(""), valueVariable(""), currentLinePosition(0),
+			_execute(&INI_Parser::expectation) {
 
 			file.open(filename_);
 			if (file.is_open()) {
 				char str;
 				file.get(str);
-				if (str == '[') {
+				if (str == CONSTS::isSectionStartCharacter) {
 					_execute = &INI_Parser::readSectionName;
 				};
-				if (str == ';') {
+				if (str == CONSTS::isCommentStartCharacter) {
 					_execute = &INI_Parser::readComment;
 				};
 
@@ -267,7 +293,11 @@ namespace INIPARSER {
 					}; 
 				}
 			}
+			else {
+				throw std::exception("File not found or corrupted!");
+			}
 
+			std::cout << currentLinePosition << std::endl;
 			file.close();
 		}
 
@@ -276,10 +306,7 @@ namespace INIPARSER {
 		}
 		
 		template<typename T>
-		T get_value(std::string dataName) {}
-
-		template<>
-		std::string get_value<std::string>(std::string dataName) {
+		const T get_value(std::string dataName) {
 			if (isBlank(dataName)) {
 				throw std::length_error("you must specify the variable name: <section_name.variable_name>");
 			}
@@ -306,82 +333,48 @@ namespace INIPARSER {
 			bool isThereSection{ false };
 			bool isThereValue{ false };
 
-			for (auto vectorIt = section.begin(); vectorIt != section.end(); vectorIt++) {
-				if ((*vectorIt).nameSection_ == nameSection) {
-					isThereSection = true;
-					for (auto It = (*vectorIt).values_.begin(); It != (*vectorIt).values_.end(); It++) {
-						if (It->first == nameValue) { 
-							isThereValue = true;
-							value = It->second;
-							return value;
-						};
-					}
-				}
-			}
+				for (auto vectorIt = section.begin(); vectorIt != section.end(); vectorIt++) {
+					if ((*vectorIt).nameSection_ == nameSection) {
+						isThereSection = true;
+						for (auto It = (*vectorIt).values_.begin(); It != (*vectorIt).values_.end(); It++) {
+							if (It->first == nameValue) {
+								isThereValue = true;
+								value = It->second;
 
-			if (!isThereSection) throw std::exception("There is no section with this name");
-			if (!isThereValue && isThereSection) throw std::exception("There is no such variable in this section");
-			
-		};
+								if (value == "") { 
+									throw std::exception("The variable  has no value!" );
+								};
 
-		template<>
-		int get_value<int>(std::string dataName) {
-			if (isBlank(dataName)) {
-				throw std::length_error("you must specify the variable name: <section_name.variable_name>");
-			}
-
-			std::string nameSection;
-			std::string nameValue;
-			std::string value;
-
-			bool isSectionRecord{ true };
-
-			for (char ch : dataName) {
-				if (isSectionRecord) {
-					if (ch == '.') {
-						isSectionRecord = false;
-						continue;
-					}
-					nameSection += ch;
-				}
-				else {
-					nameValue += ch;
-				}
-			}
-
-			bool isThereSection{ false };
-			bool isThereValue{ false };
-
-			for (auto vectorIt = section.begin(); vectorIt != section.end(); vectorIt++) {
-				if ((*vectorIt).nameSection_ == nameSection) {
-					isThereSection = true;
-					for (auto It = (*vectorIt).values_.begin(); It != (*vectorIt).values_.end(); It++) {
-						if (It->first == nameValue) {
-							isThereValue = true;
-							value = It->second;
-
-							int valueINT{ 0 };
-
-							for (int i{ 0 }; i < value.length(); i++) {
-								if (((static_cast<int>(value[i])  - 48) > 9) && 
-									(static_cast<int>(value[i]) != 46) && 
-									(static_cast<int>(value[i]) != 44)) {
-									std::cout << "Not a number";
-									throw std::exception("Not a number");
+								if constexpr (std::is_same_v<T, std::string>) { // std::string
+									return value;
 								}
-							}
+								if constexpr (std::is_same_v<T, int>) { // int
+									int valueINT{ 0 };
 
-							valueINT = std::stoi(value);
-							return valueINT;
-						};
+									for (int i{ 0 }; i < value.length(); i++) {
+										if (((static_cast<int>(value[i]) - 48) > 9) &&
+											(static_cast<int>(value[i]) != 46) &&
+											(static_cast<int>(value[i]) != 44)) {
+											throw std::exception("Not a number");
+										}
+									}
+									valueINT = std::stoi(value);
+									return valueINT;
+								}
+							};
+						}
 					}
 				}
-			}
+			
 
 			if (!isThereSection) throw std::exception("There is no section with this name");
-			if (!isThereValue && isThereSection) throw std::exception("There is no such variable in this section");
+
+			if (!isThereValue && isThereSection) throw std::exception("There is no such variable in this section ");
+
 		}
+
 	};
+	
 
 }
 
