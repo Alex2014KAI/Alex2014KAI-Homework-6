@@ -11,12 +11,16 @@ namespace INIPARSER {
 	
 	class ExceptionCurrentLinePosition : public std::exception {
 		uint32_t currentLinePosition_;
+		const char* messageErr;
+		std::string message;
 	public:
-		ExceptionCurrentLinePosition(uint32_t line) : currentLinePosition_(line) {};
+		ExceptionCurrentLinePosition(uint32_t line) : currentLinePosition_(line) {
+			message = ("Syntax error on line " + std::to_string(currentLinePosition_));
+			messageErr = message.c_str();
+		};
 
 		const char* what() const noexcept override {
-			std::cout << "Syntax error on line " << currentLinePosition_;
-			return "";
+			return messageErr;
 		};
 	};
 

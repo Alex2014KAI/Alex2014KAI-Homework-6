@@ -22,10 +22,6 @@ int main()
 
        std::cout << "Section2.var1 = " << parser.get_value<int>("Section4.Mode") << std::endl;
    }
-   catch (const std::exception& err) {
-       std::cout << "ERROR: ";
-       std::cout << err.what();
-   }
    catch (const INIPARSER::ExceptionCurrentLinePosition& err) {
        std::cout << "ERROR: ";
        std::cout << err.what();
@@ -38,11 +34,12 @@ int main()
        std::cout << "ERROR: ";
        std::cout << err.what();
    }
+   catch (const std::exception& err) {
+       std::cout << "ERROR: ";
+       std::cout << err.what();
+   }
   
 
     return 0;
 }
-
-
-// вопрос: (7 комментарий) const std::string& getNameSection() const; как мне вывести значение на экран ведь по сути я возвращаю ссылку на первый элемент в массиве char
 
